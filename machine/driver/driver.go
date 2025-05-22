@@ -233,14 +233,14 @@ func (d *Driver) Create() (err error) {
 	log.Infof("VPS %s successfully created", d.BaseDriver.MachineName)
 
 	// Wait for the VPS obtain an IP address
-	for i := 0; i < 60; i++ {
+	for range 60 {
 		ip, err := d.GetIP()
 		if err != nil {
-			log.Infof("Waiting for VPS %s to get ip assigned", d.BaseDriver.MachineName)
-			<-time.After(5 * time.Second)
+			log.Infof("Waiting for VPS %s to get IP assigned", d.BaseDriver.MachineName)
+			time.Sleep(5 * time.Second)
 			continue
 		}
-		log.Infof("VPS %s is now configured with ip address %s", d.BaseDriver.MachineName, ip)
+		log.Infof("VPS %s is now configured with IP address %s", d.BaseDriver.MachineName, ip)
 		break
 	}
 
@@ -303,8 +303,7 @@ func (d *Driver) Remove() error {
 
 // GetIP ... returns an IP or hostname that this host is available at
 func (d *Driver) GetIP() (ip string, err error) {
-	// IP is set, all is well
-	if len(d.ResponsePayloads.Instance.MainIP) > 0 && d.ResponsePayloads.Instance.MainIP != "0.0.0.0" {
+	if d.ResponsePayloads.Instance != nil && len(d.ResponsePayloads.Instance.MainIP) > 0 && d.ResponsePayloads.Instance.MainIP != "0.0.0.0" {
 		return d.ResponsePayloads.Instance.MainIP, nil
 	}
 
