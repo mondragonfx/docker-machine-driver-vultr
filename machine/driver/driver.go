@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultOSID   = 1743 // Ubuntu 22.04
+	//defaultOSID   = 1743 // Ubuntu 22.04
 	defaultRegion = "ewr"
 	defaultPlan   = "vc2-1c-2gb"
 	// defaultCloudInit = `#cloud-config
@@ -70,7 +70,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "VULTR_OSID",
 			Name:   "vultr-os-id",
 			Usage:  "Operating system ID (default: [1743] Ubuntu 22.04)",
-			Value:  defaultOSID,
+			//Value:  defaultOSID,
 		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_ISOID",
