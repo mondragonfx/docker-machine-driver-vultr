@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	defaultOSID      = 1743 // Ubuntu 22.04
-	defaultRegion    = "ewr"
-	defaultPlan      = "vc2-1c-2gb"
-	defaultCloudInit = `#cloud-config
-	runcmd:
-  	  - ufw disable
-	`
+	defaultOSID   = 1743 // Ubuntu 22.04
+	defaultRegion = "ewr"
+	defaultPlan   = "vc2-1c-2gb"
+	// defaultCloudInit = `#cloud-config
+	// runcmd:
+	//   - ufw disable
+	// `
 )
 
 // Driver ... driver struct
@@ -143,7 +143,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "VULTR_CLOUD_INIT_USER_DATA",
 			Name:   "vultr-cloud-init-user-data",
 			Usage:  "Pass base64 encoded cloud-init user data to this resource to execute after successful provision. Default Cloud-Init provided disables UFW ",
-			Value:  defaultCloudInit,
+			Value:  "",
 		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_FLOATING_IPV4_ID",
