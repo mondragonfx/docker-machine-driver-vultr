@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -23,11 +24,6 @@ const (
 
 	flagUserData     = "vultr-cloud-init-user-data"
 	flagUserDataFile = "vultr-cloud-init-from-file"
-
-	// defaultCloudInit = `#cloud-config
-	// runcmd:
-	//   - ufw disable
-	// `
 )
 
 // Driver ... driver struct
@@ -204,21 +200,30 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	d.RequestPayloads.InstanceCreateReq.AttachVPC = opts.StringSlice("vultr-vpc-ids")
 	d.RequestPayloads.InstanceCreateReq.SSHKeys = opts.StringSlice("vultr-ssh-key-ids")
 	d.RequestPayloads.InstanceCreateReq.DDOSProtection = utils.BoolPtr(opts.Bool("vultr-ddos-protection"))
-	//d.RequestPayloads.InstanceCreateReq.UserData = opts.String("vultr-cloud-init-user-data")
 	d.RequestPayloads.InstanceCreateReq.ReservedIPv4 = opts.String("vultr-floating-ipv4-id")
 	d.RequestPayloads.InstanceCreateReq.ActivationEmail = utils.BoolPtr(opts.Bool("vultr-send-activation-email"))
 
 	// Handle cloud-init user data
-	cloudInitFromFile := opts.Bool("vultr-cloud-init-from-file")
-	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
+	cloudInitFromFile := opts.Bool(flagUserDataFile)
+	cloudInitUserData := opts.String(flagUserData)
+
 	if cloudInitFromFile {
+		info, err := os.Stat(cloudInitUserData)
+		if err != nil {
+			return fmt.Errorf("cloud-init file path error (%s): %w", cloudInitUserData, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("cloud-init path '%s' is a directory, not a file", cloudInitUserData)
+		}
 		data, err := os.ReadFile(cloudInitUserData)
 		if err != nil {
-			return fmt.Errorf("failed to read cloud-init file: %w", err)
+			return fmt.Errorf("failed to read cloud-init user-data file '%s': %w", cloudInitUserData, err)
 		}
-		d.RequestPayloads.InstanceCreateReq.UserData = string(data)
+		userDataB64 := base64.StdEncoding.EncodeToString(data)
+		d.RequestPayloads.InstanceCreateReq.UserData = userDataB64
 	} else {
-		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
+		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
+		d.RequestPayloads.InstanceCreateReq.UserData = userDataB64
 	}
 
 	return nil
