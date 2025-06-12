@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +20,10 @@ const (
 	//defaultOSID   = 1743 // Ubuntu 22.04
 	defaultRegion = "ewr"
 	defaultPlan   = "vc2-1c-2gb"
+
+	flagUserData     = "vultr-cloud-init-user-data"
+	flagUserDataFile = "vultr-cloud-init-from-file"
+
 	// defaultCloudInit = `#cloud-config
 	// runcmd:
 	//   - ufw disable
@@ -139,6 +144,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vultr-ddos-protection",
 			Usage:  "Enable DDOS Protection on this resource (default: false)",
 		},
+		mcnflag.BoolFlag{
+			EnvVar: "VULTR_CLOUD_INIT_FROM_FILE",
+			Name:   flagUserDataFile,
+			Usage:  "Interpret --vultr-cloud-init-user-data as a file path and read contents from it",
+		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_CLOUD_INIT_USER_DATA",
 			Name:   "vultr-cloud-init-user-data",
@@ -197,6 +207,19 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	//d.RequestPayloads.InstanceCreateReq.UserData = opts.String("vultr-cloud-init-user-data")
 	d.RequestPayloads.InstanceCreateReq.ReservedIPv4 = opts.String("vultr-floating-ipv4-id")
 	d.RequestPayloads.InstanceCreateReq.ActivationEmail = utils.BoolPtr(opts.Bool("vultr-send-activation-email"))
+
+	// Handle cloud-init user data
+	cloudInitFromFile := opts.Bool("vultr-cloud-init-from-file")
+	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
+	if cloudInitFromFile {
+		data, err := os.ReadFile(cloudInitUserData)
+		if err != nil {
+			return fmt.Errorf("failed to read cloud-init file: %w", err)
+		}
+		d.RequestPayloads.InstanceCreateReq.UserData = string(data)
+	} else {
+		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
+	}
 
 	return nil
 }
