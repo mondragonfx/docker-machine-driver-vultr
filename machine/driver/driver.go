@@ -2,10 +2,8 @@ package driver
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
@@ -18,12 +16,9 @@ import (
 )
 
 const (
-	//defaultOSID   = 1743 // Ubuntu 22.04
+	defaultOSID   = 1743 // Ubuntu 22.04
 	defaultRegion = "ewr"
 	defaultPlan   = "vc2-1c-2gb"
-
-	flagUserData     = "vultr-cloud-init-user-data"
-	flagUserDataFile = "vultr-cloud-init-from-file"
 )
 
 // Driver ... driver struct
@@ -71,7 +66,7 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "VULTR_OSID",
 			Name:   "vultr-os-id",
 			Usage:  "Operating system ID (default: [1743] Ubuntu 22.04)",
-			//Value:  defaultOSID,
+			Value:  defaultOSID,
 		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_ISOID",
@@ -140,11 +135,6 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vultr-ddos-protection",
 			Usage:  "Enable DDOS Protection on this resource (default: false)",
 		},
-		mcnflag.BoolFlag{
-			EnvVar: "VULTR_CLOUD_INIT_FROM_FILE",
-			Name:   flagUserDataFile,
-			Usage:  "Interpret --vultr-cloud-init-user-data as a file path and read contents from it",
-		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_CLOUD_INIT_USER_DATA",
 			Name:   "vultr-cloud-init-user-data",
@@ -200,31 +190,9 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	d.RequestPayloads.InstanceCreateReq.AttachVPC = opts.StringSlice("vultr-vpc-ids")
 	d.RequestPayloads.InstanceCreateReq.SSHKeys = opts.StringSlice("vultr-ssh-key-ids")
 	d.RequestPayloads.InstanceCreateReq.DDOSProtection = utils.BoolPtr(opts.Bool("vultr-ddos-protection"))
+	d.RequestPayloads.InstanceCreateReq.UserData = opts.String("vultr-cloud-init-user-data")
 	d.RequestPayloads.InstanceCreateReq.ReservedIPv4 = opts.String("vultr-floating-ipv4-id")
 	d.RequestPayloads.InstanceCreateReq.ActivationEmail = utils.BoolPtr(opts.Bool("vultr-send-activation-email"))
-
-	// Handle cloud-init user data
-	cloudInitFromFile := opts.Bool(flagUserDataFile)
-	cloudInitUserData := opts.String(flagUserData)
-
-	if cloudInitFromFile {
-		info, err := os.Stat(cloudInitUserData)
-		if err != nil {
-			return fmt.Errorf("cloud-init file path error (%s): %w", cloudInitUserData, err)
-		}
-		if info.IsDir() {
-			return fmt.Errorf("cloud-init path '%s' is a directory, not a file", cloudInitUserData)
-		}
-		data, err := os.ReadFile(cloudInitUserData)
-		if err != nil {
-			return fmt.Errorf("failed to read cloud-init user-data file '%s': %w", cloudInitUserData, err)
-		}
-		userDataB64 := base64.StdEncoding.EncodeToString(data)
-		d.RequestPayloads.InstanceCreateReq.UserData = userDataB64
-	} else {
-		userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
-		d.RequestPayloads.InstanceCreateReq.UserData = userDataB64
-	}
 
 	return nil
 }
