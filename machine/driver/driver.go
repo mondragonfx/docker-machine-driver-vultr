@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -202,7 +203,8 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 		return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
 	}
 
-	d.RequestPayloads.InstanceCreateReq.UserData = string(ud)
+	encodedUD := base64.StdEncoding.EncodeToString(ud)
+	d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
 
 	return nil
 }
