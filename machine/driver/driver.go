@@ -202,7 +202,11 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	}
 
 	userData := string(ud)
-	userData += "\n- ufw disable\n"
+
+	runcmd := "runcmd:"
+	formatCloudConfig := strings.Index(userData, runcmd) + len(runcmd)
+
+	userData = userData[:formatCloudConfig] + "\n  - ufw disable" + userData[formatCloudConfig:]
 
 	encodedUD := base64.StdEncoding.EncodeToString([]byte(userData))
 	d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
