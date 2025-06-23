@@ -2,8 +2,10 @@ package driver
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -139,7 +141,6 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			EnvVar: "VULTR_CLOUD_INIT_USER_DATA",
 			Name:   "vultr-cloud-init-user-data",
 			Usage:  "Pass base64 encoded cloud-init user data to this resource to execute after successful provision. Default Cloud-Init provided disables UFW ",
-			Value:  "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ==",
 		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_FLOATING_IPV4_ID",
@@ -190,9 +191,21 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	d.RequestPayloads.InstanceCreateReq.AttachVPC = opts.StringSlice("vultr-vpc-ids")
 	d.RequestPayloads.InstanceCreateReq.SSHKeys = opts.StringSlice("vultr-ssh-key-ids")
 	d.RequestPayloads.InstanceCreateReq.DDOSProtection = utils.BoolPtr(opts.Bool("vultr-ddos-protection"))
-	d.RequestPayloads.InstanceCreateReq.UserData = opts.String("vultr-cloud-init-user-data")
 	d.RequestPayloads.InstanceCreateReq.ReservedIPv4 = opts.String("vultr-floating-ipv4-id")
 	d.RequestPayloads.InstanceCreateReq.ActivationEmail = utils.BoolPtr(opts.Bool("vultr-send-activation-email"))
+
+	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
+
+	ud, err := os.ReadFile(cloudInitUserData)
+	if err != nil {
+		return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
+	}
+
+	userData := string(ud)
+	userData += "\n- ufw disable\n"
+
+	encodedUD := base64.StdEncoding.EncodeToString([]byte(userData))
+	d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
 
 	return nil
 }
