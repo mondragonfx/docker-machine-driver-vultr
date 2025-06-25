@@ -142,6 +142,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vultr-cloud-init-user-data",
 			Usage:  "Pass base64 encoded cloud-init user data to this resource to execute after successful provision. Default Cloud-Init provided disables UFW ",
 		},
+		mcnflag.BoolFlag{
+			EnvVar: "VULTR_CLOUD_INIT_FROM_FILE",
+			Name:   "vultr-cloud-init-from-file",
+			Usage:  "Pass --vultr-cloud-init-user-data as a file path instead of base64 encoded string",
+		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_FLOATING_IPV4_ID",
 			Name:   "vultr-floating-ipv4-id",
@@ -194,22 +199,28 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	d.RequestPayloads.InstanceCreateReq.ReservedIPv4 = opts.String("vultr-floating-ipv4-id")
 	d.RequestPayloads.InstanceCreateReq.ActivationEmail = utils.BoolPtr(opts.Bool("vultr-send-activation-email"))
 
+	cloudInitFromFile := opts.Bool("vultr-cloud-init-from-file")
 	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
 
-	ud, err := os.ReadFile(cloudInitUserData)
-	if err != nil {
-		return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
+	if cloudInitFromFile {
+		data, err := os.ReadFile(cloudInitUserData)
+		if err != nil {
+			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
+		}
+
+		userData := string(data)
+
+		idx := "runcmd:"
+		formatCloudConfig := strings.Index(userData, idx) + len(idx)
+
+		userData = userData[:formatCloudConfig] + "\n- ufw disable" + userData[formatCloudConfig:]
+		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString([]byte(userData))
+	} else {
+		if cloudInitUserData == "" {
+			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
+		}
+		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
 	}
-
-	userData := string(ud)
-
-	runcmd := "runcmd:"
-	formatCloudConfig := strings.Index(userData, runcmd) + len(runcmd)
-
-	userData = userData[:formatCloudConfig] + "\n- ufw disable" + userData[formatCloudConfig:]
-
-	encodedUD := base64.StdEncoding.EncodeToString([]byte(userData))
-	d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
 
 	return nil
 }
