@@ -1,8 +1,10 @@
 package driver
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
@@ -35,6 +37,19 @@ type Driver struct {
 	APIKey         string
 	InstanceID     string
 	FirewallRuleID int
+}
+
+type CloudConfig struct {
+	Hostname   string      `yaml:"hostname,omitempty"`
+	RunCmd     [][]string  `yaml:"runcmd,omitempty"`
+	WriteFiles []WriteFile `yaml:"write_files,omitempty"`
+}
+
+type WriteFile struct {
+	Content     string `yaml:"content"`
+	Encoding    string `yaml:"encoding,omitempty"`
+	Path        string `yaml:"path"`
+	Permissions string `yaml:"permissions,omitempty"`
 }
 
 // GetCreateFlags ... returns the mcnflag.Flag slice representing the flags
@@ -208,20 +223,25 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
 		}
 
-		userData := string(data)
+		var config CloudConfig
+		if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&config); err != nil {
+			return fmt.Errorf("failed to decode cloud-init userdata: %w", err)
+		}
 
-		idx := "runcmd:"
-		formatCloudConfig := strings.Index(userData, idx) + len(idx)
+		config.RunCmd = append(config.RunCmd, []string{"ufw", "disable"})
 
-		userData = userData[:formatCloudConfig] + "\n- ufw disable" + userData[formatCloudConfig:]
-		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString([]byte(userData))
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(config); err != nil {
+			return fmt.Errorf("failed to re-encode cloud-init userdata: %w", err)
+		}
+
+		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(buf.Bytes())
 	} else {
 		if cloudInitUserData == "" {
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
 		}
 		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
 	}
-
 	return nil
 }
 
