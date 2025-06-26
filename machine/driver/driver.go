@@ -218,24 +218,29 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
 
 	if cloudInitFromFile {
-		data, err := os.ReadFile(cloudInitUserData)
+		userDataFile, err := os.Open(cloudInitUserData)
 		if err != nil {
-			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
+			return fmt.Errorf("failed to open cloud-init file %q: %w", cloudInitUserData, err)
 		}
+		defer userDataFile.Close()
 
 		var config CloudConfig
-		if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&config); err != nil {
+		dec := gob.NewDecoder(userDataFile)
+
+		if err := dec.Decode(&config); err != nil {
 			return fmt.Errorf("failed to decode cloud-init userdata: %w", err)
 		}
 
 		config.RunCmd = append(config.RunCmd, []string{"ufw", "disable"})
 
 		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(config); err != nil {
-			return fmt.Errorf("failed to re-encode cloud-init userdata: %w", err)
+		enc := gob.NewEncoder(&buf)
+		if err := enc.Encode(&config); err != nil {
+			return fmt.Errorf("failed to encode updated cloud-init userdata: %w", err)
 		}
 
 		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(buf.Bytes())
+
 	} else {
 		if cloudInitUserData == "" {
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
