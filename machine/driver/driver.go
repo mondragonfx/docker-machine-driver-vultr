@@ -162,8 +162,8 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Usage:  "Pass --vultr-cloud-init-user-data as a file path instead of base64 encoded string",
 		},
 		mcnflag.BoolFlag{
-			EnvVar: "VULTR_UFW",
-			Name:   "vultr-ufw",
+			EnvVar: "VULTR_DISABLE_UFW",
+			Name:   "vultr-disable-ufw",
 			Usage:  "Disable UFW (default: enabled)",
 		},
 		mcnflag.StringFlag{
