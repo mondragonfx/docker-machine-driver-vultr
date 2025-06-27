@@ -1,16 +1,15 @@
 package driver
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/goccy/go-yaml"
 	"github.com/rancher/machine/libmachine/drivers"
 	"github.com/rancher/machine/libmachine/log"
 	"github.com/rancher/machine/libmachine/mcnflag"
@@ -218,29 +217,23 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
 
 	if cloudInitFromFile {
-		userDataFile, err := os.Open(cloudInitUserData)
+		data, err := os.ReadFile(cloudInitUserData)
 		if err != nil {
-			return fmt.Errorf("failed to open cloud-init file %q: %w", cloudInitUserData, err)
+			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
 		}
-		defer userDataFile.Close()
 
 		var config CloudConfig
-		dec := gob.NewDecoder(userDataFile)
-
-		if err := dec.Decode(&config); err != nil {
-			return fmt.Errorf("failed to decode cloud-init userdata: %w", err)
+		if err := yaml.Unmarshal(data, &config); err != nil {
+			return fmt.Errorf("failed to parse cloud-init data: %w", err)
 		}
 
 		config.RunCmd = append(config.RunCmd, []string{"ufw", "disable"})
 
-		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
-		if err := enc.Encode(&config); err != nil {
-			return fmt.Errorf("failed to encode updated cloud-init userdata: %w", err)
+		updatedCloudConfig, err := yaml.Marshal(&config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal updated cloud-init data: %w", err)
 		}
-
-		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(buf.Bytes())
-
+		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(updatedCloudConfig)
 	} else {
 		if cloudInitUserData == "" {
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
