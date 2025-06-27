@@ -236,7 +236,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 			return fmt.Errorf("failed to marshal updated cloud-init data: %w", err)
 		}
 
-		newData := []byte("#cloud-config\n" + string(updatedCloudConfig))
+		newData := append([]byte("#cloud-config\n"), updatedCloudConfig...)
 		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(newData)
 	} else {
 		if cloudInitUserData == "" {
