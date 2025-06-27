@@ -40,7 +40,7 @@ type Driver struct {
 
 type CloudConfig struct {
 	Hostname   string      `yaml:"hostname,omitempty"`
-	RunCmd     [][]string  `yaml:"runcmd,omitempty"`
+	RunCmd     []string    `yaml:"runcmd,omitempty"`
 	WriteFiles []WriteFile `yaml:"write_files,omitempty"`
 }
 
@@ -161,6 +161,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vultr-cloud-init-from-file",
 			Usage:  "Pass --vultr-cloud-init-user-data as a file path instead of base64 encoded string",
 		},
+		mcnflag.BoolFlag{
+			EnvVar: "VULTR_UFW",
+			Name:   "vultr-ufw",
+			Usage:  "Disable UFW (default: enabled)",
+		},
 		mcnflag.StringFlag{
 			EnvVar: "VULTR_FLOATING_IPV4_ID",
 			Name:   "vultr-floating-ipv4-id",
@@ -215,6 +220,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 
 	cloudInitFromFile := opts.Bool("vultr-cloud-init-from-file")
 	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
+	disableUFW := opts.Bool("vultr-ufw")
 
 	if cloudInitFromFile {
 		data, err := os.ReadFile(cloudInitUserData)
@@ -222,25 +228,30 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
 		}
 
-		cloudConfigHeader := strings.TrimPrefix(string(data), "#cloud-config\n")
+		if disableUFW {
+			cloudConfigHeader := strings.TrimPrefix(string(data), "#cloud-config\n")
+			var config CloudConfig
+			if err := yaml.Unmarshal([]byte(cloudConfigHeader), &config); err != nil {
+				return fmt.Errorf("failed to unmarshal cloud config: %w", err)
+			}
 
-		var config CloudConfig
-		if err := yaml.Unmarshal([]byte(cloudConfigHeader), &config); err != nil {
-			return fmt.Errorf("failed to unmarshal cloud config: %w", err)
+			config.RunCmd = append(config.RunCmd, "ufw", "disable")
+
+			updatedCloudConfig, err := yaml.Marshal(&config)
+			if err != nil {
+				return fmt.Errorf("failed to marshal updated cloud-init data: %w", err)
+			}
+
+			newData := append([]byte("#cloud-config\n"), updatedCloudConfig...)
+			encodedUD := base64.StdEncoding.EncodeToString(newData)
+			d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
+		} else {
+			encodedUD := base64.StdEncoding.EncodeToString(data)
+			d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
 		}
-
-		config.RunCmd = append(config.RunCmd, []string{"ufw", "disable"})
-
-		updatedCloudConfig, err := yaml.Marshal(&config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal updated cloud-init data: %w", err)
-		}
-
-		newData := append([]byte("#cloud-config\n"), updatedCloudConfig...)
-		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(newData)
 	} else {
 		if cloudInitUserData == "" {
-			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
+			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgcmVnaXN0ZXI="
 		}
 		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
 	}
