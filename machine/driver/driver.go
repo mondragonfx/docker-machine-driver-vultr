@@ -222,9 +222,11 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
 		}
 
+		cloudConfigHeader := strings.TrimPrefix(string(data), "#cloud-config\n")
+
 		var config CloudConfig
-		if err := yaml.Unmarshal(data, &config); err != nil {
-			return fmt.Errorf("failed to parse cloud-init data: %w", err)
+		if err := yaml.Unmarshal([]byte(cloudConfigHeader), &config); err != nil {
+			return fmt.Errorf("failed to unmarshal cloud config: %w", err)
 		}
 
 		config.RunCmd = append(config.RunCmd, []string{"ufw", "disable"})
@@ -233,7 +235,9 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal updated cloud-init data: %w", err)
 		}
-		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(updatedCloudConfig)
+
+		newData := []byte("#cloud-config\n" + string(updatedCloudConfig))
+		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString(newData)
 	} else {
 		if cloudInitUserData == "" {
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgZGlzYWJsZQ=="
