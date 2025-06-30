@@ -220,7 +220,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 
 	cloudInitFromFile := opts.Bool("vultr-cloud-init-from-file")
 	cloudInitUserData := opts.String("vultr-cloud-init-user-data")
-	disableUFW := opts.Bool("vultr-ufw")
+	disableUFW := opts.Bool("vultr-disable-ufw")
 
 	if cloudInitFromFile {
 		data, err := os.ReadFile(cloudInitUserData)
