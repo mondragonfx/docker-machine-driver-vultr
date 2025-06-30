@@ -235,7 +235,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 				return fmt.Errorf("failed to unmarshal cloud config: %w", err)
 			}
 
-			config.RunCmd = append(config.RunCmd, "ufw", "disable")
+			config.RunCmd = append(config.RunCmd, "ufw disable")
 
 			updatedCloudConfig, err := yaml.Marshal(&config)
 			if err != nil {
@@ -251,6 +251,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 		}
 	} else {
 		if cloudInitUserData == "" {
+			``
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgcmVnaXN0ZXI="
 		}
 		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
