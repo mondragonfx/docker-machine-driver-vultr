@@ -251,7 +251,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 		}
 	} else {
 		if cloudInitUserData == "" {
-			``
+
 			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgcmVnaXN0ZXI="
 		}
 		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
