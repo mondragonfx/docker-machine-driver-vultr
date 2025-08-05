@@ -19,9 +19,13 @@ import (
 )
 
 const (
-	defaultOSID   = 1743 // Ubuntu 22.04
-	defaultRegion = "ewr"
-	defaultPlan   = "vc2-1c-2gb"
+	defaultOSID        = 1743 // Ubuntu 22.04
+	defaultRegion      = "ewr"
+	defaultPlan        = "vc2-1c-2gb"
+	defaultCloudConfig = `#cloud-config
+runcmd:
+  - '[ -x "$(command -v ufw)" ] && ufw disable'
+`
 )
 
 // Driver ... driver struct
@@ -225,7 +229,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 	if cloudInitFromFile {
 		data, err := os.ReadFile(cloudInitUserData)
 		if err != nil {
-			return fmt.Errorf("failed to read cloud-init file %q: %w", cloudInitUserData, err)
+			return fmt.Errorf("failed to read cloud-init file: %w", err)
 		}
 
 		if disableUFW {
@@ -235,7 +239,7 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 				return fmt.Errorf("failed to unmarshal cloud config: %w", err)
 			}
 
-			config.RunCmd = append(config.RunCmd, `[ -x "$(command -v ufw)" ] && ufw disable`)
+			config.RunCmd = append(config.RunCmd, "[ -x \"$(command -v ufw)\" ] && ufw disable")
 
 			updatedCloudConfig, err := yaml.Marshal(&config)
 			if err != nil {
@@ -249,12 +253,10 @@ func (d *Driver) SetConfigFromFlags(opts drivers.DriverOptions) error {
 			encodedUD := base64.StdEncoding.EncodeToString(data)
 			d.RequestPayloads.InstanceCreateReq.UserData = encodedUD
 		}
-	} else {
-		if cloudInitUserData == "" {
-
-			cloudInitUserData = "I2Nsb3VkLWNvbmZpZwoKcnVuY21kOgogLSB1ZncgcmVnaXN0ZXI="
-		}
+	} else if cloudInitUserData != "" {
 		d.RequestPayloads.InstanceCreateReq.UserData = cloudInitUserData
+	} else {
+		d.RequestPayloads.InstanceCreateReq.UserData = base64.StdEncoding.EncodeToString([]byte(defaultCloudConfig))
 	}
 	return nil
 }
